@@ -1,5 +1,4 @@
 use rand::{thread_rng, RngCore};
-use rug::Integer;
 
 pub(crate) fn randbytes<const BITS: usize>() -> Vec<u8> {
     let mut bytes = vec![0u8; BITS / 8];
