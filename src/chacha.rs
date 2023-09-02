@@ -120,7 +120,7 @@ impl ChaCha20Poly1305 {
         ChaCha20Poly1305 { key }
     }
 
-    pub fn encrypt(&self, plaintext: &[u8], nonce: &[u8], aead: &[u8], counter: u32) -> Vec<u8> {
+    pub fn encrypt(&self, plaintext: &[u8], nonce: &[u8], aad: &[u8], counter: u32) -> Vec<u8> {
         let chacha = ChaCha20::new(self.key.clone());
 
         let otk = &chacha.keystream(nonce, 0);
@@ -129,14 +129,16 @@ impl ChaCha20Poly1305 {
         let mut poly1305 = Poly1305::new(poly1305_key);
         let ciphertext = chacha.encrypt(plaintext, nonce, counter);
 
-        poly1305.update(&aead, true);
+        poly1305.update(aad, true);
         poly1305.update(&ciphertext, true);
-
-        let aead_len = aead.len() as u64;
+        let aad_len = aad.len() as u64;
         let ciphertext_len = ciphertext.len() as u64;
+        let mut lens = Vec::new();
 
-        poly1305.update(&aead_len.to_le_bytes(), false);
-        poly1305.update(&ciphertext_len.to_le_bytes(), false);
+        lens.extend_from_slice(&aad_len.to_le_bytes());
+        lens.extend_from_slice(&ciphertext_len.to_le_bytes());
+
+        poly1305.update(&lens, false);
 
         [ciphertext, poly1305.tag()].concat().into()
     }
@@ -145,7 +147,7 @@ impl ChaCha20Poly1305 {
         &self,
         text: &[u8],
         nonce: &[u8],
-        aead: &[u8],
+        aad: &[u8],
         counter: u32,
     ) -> PyResult<Vec<u8>> {
         if text.len() < 17 {
@@ -162,14 +164,13 @@ impl ChaCha20Poly1305 {
         let mut poly1305 = Poly1305::new(poly1305_key);
         let plaintext = chacha.encrypt(ciphertext, nonce, counter);
 
-        poly1305.update(&aead, true);
         poly1305.update(&ciphertext, true);
+        poly1305.update(&aad, true);
 
-        let aead_len = aead.len() as u64;
         let ciphertext_len = ciphertext.len() as u64;
 
-        poly1305.update(&aead_len.to_le_bytes(), false);
         poly1305.update(&ciphertext_len.to_le_bytes(), false);
+        poly1305.update(&(aad.len() as u64).to_le_bytes(), false);
 
         if poly1305.verify(tag) {
             return Ok(plaintext.to_vec());
@@ -233,13 +234,13 @@ impl XChaCha20Poly1305 {
         (subkey, chacha_nonce)
     }
 
-    pub fn encrypt(&self, plaintext: &[u8], nonce: &[u8], aead: &[u8], counter: u32) -> Cow<[u8]> {
+    pub fn encrypt(&self, plaintext: &[u8], nonce: &[u8], aad: &[u8], counter: u32) -> Cow<[u8]> {
         let (subkey, chacha_nonce) = self.key(nonce);
 
         let chacha = ChaCha20Poly1305::new(subkey);
 
         chacha
-            .encrypt(plaintext, &chacha_nonce, aead, counter)
+            .encrypt(plaintext, &chacha_nonce, aad, counter)
             .into()
     }
 
@@ -247,14 +248,14 @@ impl XChaCha20Poly1305 {
         &self,
         ciphertext: &[u8],
         nonce: &[u8],
-        aead: &[u8],
+        aad: &[u8],
         counter: u32,
     ) -> PyResult<Cow<[u8]>> {
         let (subkey, chacha_nonce) = self.key(nonce);
 
         let chacha = ChaCha20Poly1305::new(subkey);
 
-        let output = chacha.decrypt(ciphertext, &chacha_nonce, aead, counter);
+        let output = chacha.decrypt(ciphertext, &chacha_nonce, aad, counter);
 
         match output {
             Ok(output) => Ok(output.into()),
@@ -275,4 +276,3 @@ pub fn chacha(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<XChaCha20Poly1305>()?;
     Ok(())
 }
-
