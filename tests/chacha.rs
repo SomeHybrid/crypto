@@ -1,4 +1,14 @@
 use encryption::chacha::*;
+use serde_json::{from_str, Value};
+use std::fs;
+use std::num::ParseIntError;
+
+pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+        .collect()
+}
 
 #[test]
 fn test_chacha() {
@@ -110,6 +120,7 @@ fn test_xchacha() {
     let aad = [
         0x50, 0x51, 0x52, 0x53, 0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7,
     ];
+
     let plaintext = [
         0x4c, 0x61, 0x64, 0x69, 0x65, 0x73, 0x20, 0x61, 0x6e, 0x64, 0x20, 0x47, 0x65, 0x6e, 0x74,
         0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x20, 0x6f, 0x66, 0x20, 0x74, 0x68, 0x65, 0x20, 0x63, 0x6c,
@@ -133,7 +144,7 @@ fn test_xchacha() {
     ];
 
     let xchacha = XChaCha20Poly1305::new(key.to_vec());
-    let output = xchacha.encrypt(&plaintext, &nonce, &aad, 1);
+    let output = xchacha.encrypt(&plaintext, &nonce, &aad, 1).unwrap();
 
     assert_eq!(output, expected_ct.to_vec());
 }
@@ -169,7 +180,7 @@ fn test_tag() {
     ];
 
     let xchacha = XChaCha20Poly1305::new(key.to_vec());
-    let output = xchacha.encrypt(&plaintext, &nonce, &aad, 1);
+    let output = xchacha.encrypt(&plaintext, &nonce, &aad, 1).unwrap();
 
     let _ = match xchacha.decrypt(&output, &nonce, &false_aad, 1) {
         Ok(_) => Err(String::from("Tag checking failed")),
@@ -215,7 +226,7 @@ fn test_decrypt() {
 
     let xchacha = XChaCha20Poly1305::new(key.to_vec());
 
-    let ciphertext = xchacha.encrypt(&plaintext, &nonce, &aad, 1);
+    let ciphertext = xchacha.encrypt(&plaintext, &nonce, &aad, 1).unwrap();
     assert_eq!(ciphertext, expected.to_vec());
 
     let _ = match xchacha.decrypt(&ciphertext, &nonce, &aad, 1) {
