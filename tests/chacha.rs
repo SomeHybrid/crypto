@@ -1,14 +1,6 @@
 use encryption::chacha::*;
 use serde_json::{from_str, Value};
 use std::fs;
-use std::num::ParseIntError;
-
-pub fn decode_hex(s: &str) -> Result<Vec<u8>, ParseIntError> {
-    (0..s.len())
-        .step_by(2)
-        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
-        .collect()
-}
 
 #[test]
 fn test_chacha() {
@@ -233,4 +225,64 @@ fn test_decrypt() {
         Ok(_) => Ok(()),
         Err(_) => Err(String::from("Tag checking failed")),
     };
+}
+
+#[test]
+fn test_chacha20_poly1305_wycheproof() {
+    let raw = fs::read_to_string("tests/vectors/chacha20-poly1305.json").unwrap();
+    let data: Value = from_str(&raw).unwrap();
+
+    let tests = data["testGroups"][0]["tests"].as_array().unwrap();
+
+    for test in tests {
+        let key = hex::decode(test["key"].as_str().unwrap()).unwrap();
+        let nonce = hex::decode(test["iv"].as_str().unwrap()).unwrap();
+        let aad = hex::decode(test["aad"].as_str().unwrap()).unwrap();
+        let pt = hex::decode(test["msg"].as_str().unwrap()).unwrap();
+
+        let ciphertext = hex::decode(test["ct"].as_str().unwrap()).unwrap();
+        let tag = hex::decode(test["tag"].as_str().unwrap()).unwrap();
+
+        let expected = [ciphertext.clone(), tag].concat();
+
+        let chacha = ChaCha20Poly1305::new(key);
+
+        if test["result"].as_str().unwrap() == "valid" {
+            assert_eq!(chacha.encrypt(&pt, &nonce, &aad, 1), expected);
+        } else {
+            assert_ne!(chacha.encrypt(&pt, &nonce, &aad, 1), expected);
+        }
+    }
+}
+
+#[test]
+fn test_xchacha20_poly1305_wycheproof() {
+    let raw = fs::read_to_string("tests/vectors/xchacha20-poly1305.json").unwrap();
+    let data: Value = from_str(&raw).unwrap();
+
+    let tests = data["testGroups"][0]["tests"].as_array().unwrap();
+
+    for test in tests {
+        let key = hex::decode(test["key"].as_str().unwrap()).unwrap();
+        let nonce = hex::decode(test["iv"].as_str().unwrap()).unwrap();
+        let aad = hex::decode(test["aad"].as_str().unwrap()).unwrap();
+        let pt = hex::decode(test["msg"].as_str().unwrap()).unwrap();
+
+        let ciphertext = hex::decode(test["ct"].as_str().unwrap()).unwrap();
+        let tag = hex::decode(test["tag"].as_str().unwrap()).unwrap();
+
+        let expected = [ciphertext.clone(), tag].concat();
+
+        let chacha = XChaCha20Poly1305::new(key);
+
+        if test["result"].as_str().unwrap() == "valid" {
+            assert_eq!(chacha.encrypt(&pt, &nonce, &aad, 1).unwrap(), expected);
+        } else {
+            if chacha.encrypt(&pt, &nonce, &aad, 1).is_err() {
+                continue;
+            }
+
+            assert_ne!(chacha.encrypt(&pt, &nonce, &aad, 1).unwrap(), expected);
+        }
+    }
 }

@@ -14,7 +14,7 @@ fn test_poly1305_1() {
     ];
 
     let mut p = Poly1305::new(key.to_vec());
-    p.update(msg, false);
+    p.update_unpadded(msg);
     assert_eq!(p.tag(), &tag);
 }
 
@@ -44,12 +44,12 @@ fn test_poly1305_2() {
     ];
 
     let mut p = Poly1305::new(key.to_vec());
-    p.update(&msg, false);
+    p.update_unpadded(&msg);
     assert_eq!(p.tag(), &expected);
 }
 
 #[test]
-fn donna_poly1305_tests() {
+fn donna_test_1() {
     let nacl_key = [
         0xee, 0xa6, 0xa7, 0x25, 0x1c, 0x1e, 0x72, 0x91, 0x6d, 0x11, 0xc2, 0xcb, 0x21, 0x4d, 0x3c,
         0x25, 0x25, 0x39, 0x12, 0x1d, 0x8e, 0x23, 0x4e, 0x65, 0x2d, 0x65, 0x1f, 0xa4, 0xc8, 0xcf,
@@ -73,6 +73,14 @@ fn donna_poly1305_tests() {
         0xd9,
     ];
 
+    let mut p = Poly1305::new(nacl_key.to_vec());
+    p.update_unpadded(&nacl_msg);
+
+    assert_eq!(p.verify(&nacl_mac), true);
+}
+
+#[test]
+fn donna_test_2() {
     let wrap_key = [
         0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -89,32 +97,8 @@ fn donna_poly1305_tests() {
         0x00,
     ];
 
-    let mut result = 1;
-
-    let mut p = Poly1305::new(nacl_key.to_vec());
-    p.update(&nacl_msg, false);
-
-    result &= p.verify(&nacl_mac) as u8;
-
     let mut p2 = Poly1305::new(wrap_key.to_vec());
-    p2.update(&wrap_msg, false);
+    p2.update_unpadded(&wrap_msg);
 
-    result &= p2.verify(&wrap_mac) as u8;
-
-    let mut p3 = Poly1305::new(nacl_key.to_vec());
-    p3.update(&nacl_msg[..32], false);
-    p3.update(&nacl_msg[32..96], false);
-    p3.update(&nacl_msg[96..112], false);
-    p3.update(&nacl_msg[112..120], false);
-    p3.update(&nacl_msg[120..124], false);
-    p3.update(&nacl_msg[124..126], false);
-    p3.update(&nacl_msg[126..127], false);
-    p3.update(&nacl_msg[127..128], false);
-    p3.update(&nacl_msg[128..129], false);
-    p3.update(&nacl_msg[129..130], false);
-    p3.update(&nacl_msg[130..131], false);
-
-    result &= p3.verify(&nacl_mac) as u8;
-
-    assert_ne!(result, 0);
+    assert_eq!(p2.verify(&wrap_mac), true);
 }
