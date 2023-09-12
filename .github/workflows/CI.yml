@@ -1,5 +1,9 @@
 name: chacha
 
+defaults:
+  run:
+    working-directory: chacha
+
 on:
   push:
     branches:
@@ -15,8 +19,6 @@ permissions:
 
 jobs:
   linux:
-    defaults:
-      working-directory: chacha
     runs-on: ubuntu-latest
     strategy:
       matrix:
