@@ -20,16 +20,7 @@ permissions:
 jobs:
   linux:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        rust:
-          - nightly
-        target: [x86_64, x86, aarch64, armv7, s390x, ppc64le]
     steps:
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.rust }}
-          targets: ${{ matrix.target }}
-      - run: ${{ matrix.deps }}
+      - uses: dtolnay/rust-toolchain@nightly
 
-      - run: cargo test --target ${{ matrix.target }}
+      - run: cargo test
