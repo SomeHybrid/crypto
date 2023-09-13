@@ -4,7 +4,10 @@ use std::mem;
 #[target_feature(enable = "sse2")]
 #[target_feature(enable = "avx2")]
 unsafe fn _rotl<const C: i32, const D: i32>(x: &mut u32x4) -> u32x4 {
+    #[cfg(target_arch = "x86_64")]
     use core::arch::x86_64::*;
+    #[cfg(target_arch = "x86")]
+    use std::arch::x86::*;
     let data: __m128i = (*x).into();
 
     mem::transmute(_mm_xor_si128(
