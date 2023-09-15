@@ -1,9 +1,24 @@
 use core::simd::u32x4;
 use std::mem;
 
-#[target_feature(enable = "sse2")]
-#[target_feature(enable = "avx2")]
-unsafe fn _rotl<const C: i32, const D: i32>(x: &mut u32x4) -> u32x4 {
+use std::arch::is_aarch64_feature_detected;
+
+#[target_feature(enable = "neon")]
+#[cfg(target_arch = "aarch64")]
+unsafe fn _rotl_neon<const C: i32, const D: i32>(x: &mut u32x4) -> u32x4 {
+    use core::arch::aarch64::*;
+    let data: uint32x4_t = (*x).into();
+    mem::transmute(veorq_u32(
+        vshlq_n_u32(data.clone(), C),
+        vshrq_n_u32(data, D),
+    ))
+}
+
+#[cfg(all(
+    any(target_arch = "x86", target_arch = "x86_64"),
+    any(target_feature = "avx2", target_feature = "sse2")
+))]
+unsafe fn _rotl_x86<const C: i32, const D: i32>(x: &mut u32x4) -> u32x4 {
     #[cfg(target_arch = "x86_64")]
     use core::arch::x86_64::*;
     #[cfg(target_arch = "x86")]
@@ -17,9 +32,16 @@ unsafe fn _rotl<const C: i32, const D: i32>(x: &mut u32x4) -> u32x4 {
 }
 
 fn rotl<const C: i32, const D: i32>(x: &mut u32x4) {
+    #[cfg(any(target_arch = "x86_64", target_arch = "x86"))]
     if is_x86_feature_detected!("sse2") || is_x86_feature_detected!("avx2") {
-        *x = unsafe { _rotl::<C, D>(x) };
+        *x = unsafe { _rotl_x86::<C, D>(x) };
 
+        return;
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    if is_aarch64_feature_detected!("neon") {
+        *x = unsafe { _rotl_neon::<C, D>(x) };
         return;
     }
 

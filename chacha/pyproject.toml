@@ -4,13 +4,23 @@ build-backend = "maturin"
 
 [project]
 name = "chacha"
+version = "0.1"
+description = "A vectorized implementation of the ChaCha stream cipher."
+license = { text = "MIT" }
+readme = "README.md"
+
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Security :: Cryptography",
+    "Topic :: Security",
 ]
 
+[project.urls]
+repository = "https://github.com/SomeHybrid/crypto/tree/main/chacha"
+homepage = "https://github.com/SomeHybrid/crypto/tree/main/chacha"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

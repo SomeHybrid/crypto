@@ -7,6 +7,7 @@ use crate::poly1305::Poly1305;
 use core::simd::u32x4;
 use pyo3::exceptions::PyAssertionError;
 use pyo3::prelude::*;
+use std::borrow::Cow;
 
 #[pyclass]
 pub struct ChaCha {
@@ -291,10 +292,42 @@ impl XChaChaPoly1305 {
     }
 }
 
-#[pymodule]
-pub fn chacha(_py: Python, m: &PyModule) -> PyResult<()> {
-    m.add_class::<ChaCha>()?;
-    m.add_class::<ChaChaPoly1305>()?;
-    m.add_class::<XChaChaPoly1305>()?;
-    Ok(())
+#[pyfunction]
+pub fn encrypt(
+    key: Vec<u8>,
+    plaintext: Vec<u8>,
+    iv: Option<Vec<u8>>,
+    data: Option<Vec<u8>>,
+    counter: Option<u32>,
+    rounds: Option<usize>,
+) -> PyResult<Cow<'static, [u8]>> {
+    let chacha = XChaChaPoly1305::new(key, rounds)?;
+
+    let nonce = iv.unwrap_or(vec![0u8; 12]);
+    let ctr = counter.unwrap_or(0);
+    let aad = data.unwrap_or(Vec::new());
+
+    let data = chacha.encrypt(&plaintext, &nonce, &aad, ctr)?;
+
+    Ok(data.into())
+}
+
+#[pyfunction]
+pub fn decrypt(
+    key: Vec<u8>,
+    plaintext: Vec<u8>,
+    iv: Option<Vec<u8>>,
+    data: Option<Vec<u8>>,
+    counter: Option<u32>,
+    rounds: Option<usize>,
+) -> PyResult<Cow<'static, [u8]>> {
+    let chacha = XChaChaPoly1305::new(key, rounds)?;
+
+    let nonce = iv.unwrap_or(vec![0u8; 12]);
+    let ctr = counter.unwrap_or(0);
+    let aad = data.unwrap_or(Vec::new());
+
+    let data = chacha.decrypt(&plaintext, &nonce, &aad, ctr)?;
+
+    Ok(data.into())
 }
