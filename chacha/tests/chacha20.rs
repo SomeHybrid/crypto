@@ -246,14 +246,19 @@ fn test_chacha20_poly1305_wycheproof() {
 
         let chacha = ChaChaPoly1305::new(key, None).unwrap();
 
+        let data;
         if test["result"].as_str().unwrap() == "valid" {
-            assert_eq!(chacha.encrypt(&pt, &nonce, &aad, 1).unwrap(), expected);
+            data = chacha.encrypt(&pt, &nonce, &aad, 1).unwrap();
+            assert_eq!(data, expected);
         } else {
-            if chacha.encrypt(&pt, &nonce, &aad, 1).is_err() {
+            let output = chacha.encrypt(&pt, &nonce, &aad, 1);
+            if output.is_err() {
                 continue;
             }
 
-            assert_ne!(chacha.encrypt(&pt, &nonce, &aad, 1).unwrap(), expected);
+            data = output.unwrap();
+
+            assert_ne!(data, expected);
         }
     }
 }

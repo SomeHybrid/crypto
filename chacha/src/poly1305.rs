@@ -10,6 +10,8 @@ pub struct Poly1305 {
     r: [u32; 5],
     h: [u32; 5],
     pad: [u32; 4],
+    finished: bool,
+    output: [u8; 16],
 }
 
 impl Poly1305 {
@@ -50,7 +52,7 @@ impl Poly1305 {
         self.h[1] += c;
     }
 
-    fn finish(&mut self) -> [u8; 16] {
+    fn finish(&mut self) {
         let mut h = self.h.clone();
 
         let mut c: u32 = 0;
@@ -105,13 +107,15 @@ impl Poly1305 {
         f = h[3] as u64 + self.pad[3] as u64 + (f >> 32);
         h[3] = f as u32;
 
+        self.finished = true;
+
         let mut output = [0u8; 16];
 
         for i in 0..4 {
             output[i * 4..(i + 1) * 4].clone_from_slice(&h[i].to_le_bytes());
         }
 
-        output
+        self.output = output;
     }
 }
 
@@ -134,7 +138,16 @@ impl Poly1305 {
 
         let h = [0u32; 5];
 
-        Poly1305 { r, h, pad }
+        let finished = false;
+        let output = [0u8; 16];
+
+        Poly1305 {
+            r,
+            h,
+            pad,
+            finished,
+            output,
+        }
     }
 
     pub fn update(&mut self, data: &[u8]) {
@@ -159,9 +172,11 @@ impl Poly1305 {
     }
 
     pub fn tag(&mut self) -> Vec<u8> {
-        let output = self.finish();
+        if !self.finished {
+            self.finish();
+        }
 
-        output.to_vec()
+        self.output.to_vec()
     }
 
     pub fn verify(&mut self, other: &[u8]) -> bool {

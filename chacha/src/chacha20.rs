@@ -176,16 +176,20 @@ impl ChaChaPoly1305 {
         poly1305.update(&ciphertext);
         poly1305.update(&aad);
 
+        let aad_len = aad.len() as u64;
         let ciphertext_len = ciphertext.len() as u64;
+        let mut lens = Vec::new();
 
-        poly1305.update(&ciphertext_len.to_le_bytes());
-        poly1305.update(&(aad.len() as u64).to_le_bytes());
+        lens.extend_from_slice(&aad_len.to_le_bytes());
+        lens.extend_from_slice(&ciphertext_len.to_le_bytes());
 
-        if poly1305.verify(tag) {
-            return Ok(plaintext.to_vec());
+        poly1305.update(&lens);
+
+        if !poly1305.verify(tag) {
+            return Err(PyAssertionError::new_err("Invalid MAC"));
         }
 
-        Err(PyAssertionError::new_err("Invalid MAC"))
+        Ok(plaintext.to_vec())
     }
 }
 
@@ -301,13 +305,13 @@ pub fn encrypt(
     counter: Option<u32>,
     rounds: Option<usize>,
 ) -> PyResult<Cow<'static, [u8]>> {
-    let chacha = XChaChaPoly1305::new(key, rounds)?;
+    let cipher = XChaChaPoly1305::new(key.clone(), rounds.clone())?;
 
-    let nonce = iv.unwrap_or(vec![0u8; 12]);
-    let ctr = counter.unwrap_or(0);
-    let aad = data.unwrap_or(Vec::new());
+    let nonce = iv.unwrap_or(vec![0u8; 24]);
+    let ctr = counter.unwrap_or(1);
+    let aad = data.unwrap_or_default();
 
-    let data = chacha.encrypt(&plaintext, &nonce, &aad, ctr)?;
+    let data = cipher.encrypt(&plaintext, &nonce, &aad, ctr)?;
 
     Ok(data.into())
 }
@@ -321,13 +325,13 @@ pub fn decrypt(
     counter: Option<u32>,
     rounds: Option<usize>,
 ) -> PyResult<Cow<'static, [u8]>> {
-    let chacha = XChaChaPoly1305::new(key, rounds)?;
+    let cipher = XChaChaPoly1305::new(key, rounds)?;
 
-    let nonce = iv.unwrap_or(vec![0u8; 12]);
-    let ctr = counter.unwrap_or(0);
-    let aad = data.unwrap_or(Vec::new());
+    let nonce = iv.unwrap_or(vec![0u8; 24]);
+    let ctr = counter.unwrap_or(1);
+    let aad = data.unwrap_or_default();
 
-    let data = chacha.decrypt(&plaintext, &nonce, &aad, ctr)?;
+    let data = cipher.decrypt(&plaintext, &nonce, &aad, ctr)?;
 
     Ok(data.into())
 }

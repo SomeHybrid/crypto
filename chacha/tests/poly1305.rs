@@ -15,7 +15,7 @@ fn test_poly1305_1() {
 
     let mut p = Poly1305::new(key.to_vec());
     p.update_unpadded(msg);
-    assert_eq!(p.tag(), &tag);
+    assert_eq!(p.verify(&tag), true);
 }
 
 #[test]
@@ -38,14 +38,14 @@ fn test_poly1305_2() {
         0x59, 0x9b, 0x1f, 0x65, 0x4c, 0xb4, 0x5a, 0x74, 0xe3, 0x55, 0xa5,
     ];
 
-    let expected = [
+    let tag = [
         0xf3, 0xff, 0xc7, 0x70, 0x3f, 0x94, 0x00, 0xe5, 0x2a, 0x7d, 0xfb, 0x4b, 0x3d, 0x33, 0x05,
         0xd9,
     ];
 
     let mut p = Poly1305::new(key.to_vec());
     p.update_unpadded(&msg);
-    assert_eq!(p.tag(), &expected);
+    assert_eq!(p.verify(&tag), true);
 }
 
 #[test]
