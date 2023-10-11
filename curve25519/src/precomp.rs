@@ -1,9 +1,9 @@
-use crate::curve25519::field::FieldElement;
+use crate::field::FieldElement;
 
 pub struct Precomp {
-    yplusx: FieldElement,
-    yminusx: FieldElement,
-    xy2d: FieldElement,
+    pub yplusx: FieldElement,
+    pub yminusx: FieldElement,
+    pub xy2d: FieldElement,
 }
 
 impl Precomp {
@@ -16,7 +16,7 @@ impl Precomp {
     }
 }
 
-const BI: [Precomp; 8] = [
+pub const BI: [Precomp; 8] = [
     Precomp::new(
         [
             25967493, -14356035, 29566456, 3660896, -12694345, 4014787, 27544626, -11754271,
@@ -131,7 +131,7 @@ const BI: [Precomp; 8] = [
     ),
 ];
 
-const BASE: [[Precomp; 8]; 32] = [
+pub const BASE: [[Precomp; 8]; 32] = [
     [
         Precomp::new(
             [

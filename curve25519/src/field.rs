@@ -44,6 +44,10 @@ impl FieldElement {
         FieldElement([1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
     }
 
+    pub const fn from(data: [i32; 10]) -> FieldElement {
+        FieldElement(data)
+    }
+
     pub fn from_bytes(s: &[u8]) -> FieldElement {
         let mut h0 = load4(&s[0..4]);
         let mut h1 = load3(&s[4..7]) << 6;
@@ -175,6 +179,22 @@ impl FieldElement {
         *other = FieldElement(g);
     }
 
+    pub fn mov(&self, other: FieldElement) -> FieldElement {
+        let f = self.0.clone();
+        let mut g = other.0.clone();
+        let mut x = [0i32; 10];
+
+        for i in 0..10 {
+            x[i] = f[i] ^ g[i];
+        }
+
+        for i in 0..10 {
+            g[i] ^= x[i];
+        }
+
+        FieldElement(g)
+    }
+
     pub fn square(&self) -> FieldElement {
         let FieldElement(f) = self;
 
@@ -293,61 +313,61 @@ impl FieldElement {
         FieldElement(output)
     }
 
-    pub fn invert(&self) -> FieldElement {
+    pub fn invert(self) -> FieldElement {
         let mut t0 = self.square();
         let mut t1 = t0.square();
         t1 = t1.square();
-        t1 = *self * t1;
-        t0 = t0 * t1;
+        t1 = &self * &t1;
+        t0 = &t0 * &t1;
         let mut t2 = t0.square();
-        t1 = t1 * t2;
+        t1 = &t1 * &t2;
         t2 = t1.square();
 
         for _ in 1..5 {
             t2 = t2.square();
         }
 
-        t1 = t2 * t1;
+        t1 = &t2 * &t1;
         t2 = t1.square();
 
         for _ in 1..10 {
             t2 = t2.square();
         }
 
-        t2 = t2 * t1;
+        t2 = &t2 * &t1;
         let mut t3 = t2.square();
 
         for _ in 1..20 {
             t3 = t3.square();
         }
 
-        t2 = t3 * t2;
+        t2 = &t3 * &t2;
 
         for _ in 1..11 {
             t2 = t2.square();
         }
 
-        t1 = t2 * t1;
+        t1 = &t2 * &t1;
         t2 = t1.square();
 
         for _ in 1..50 {
             t2 = t2.square();
         }
 
-        t2 = t2 * t1;
+        t2 = &t2 * &t1;
         t3 = t2.square();
 
         for _ in 1..100 {
             t3 = t3.square();
         }
 
-        t2 = t3 * t2;
+        t2 = &t3 * &t2;
 
         for _ in 1..51 {
             t2 = t2.square();
         }
 
-        t1 = t2 * t1;
+        t1 = &t2 * &t1;
 
         for _ in 1..6 {
             t1 = t1.square();
@@ -382,12 +402,20 @@ impl FieldElement {
 
         FieldElement(output)
     }
+
+    pub fn double(&self) -> FieldElement {
+        self + self
+    }
+
+    pub fn negative(&self) -> bool {
+        self.to_bytes()[0] & 1 == 1
+    }
 }
 
-impl Add for FieldElement {
+impl Add for &FieldElement {
     type Output = FieldElement;
 
-    fn add(self, rhs: FieldElement) -> FieldElement {
+    fn add(self, rhs: &FieldElement) -> FieldElement {
         let f = self.0;
         let other = rhs.0;
 
@@ -400,10 +428,18 @@ impl Add for FieldElement {
     }
 }
 
-impl Sub for FieldElement {
+impl Add for FieldElement {
     type Output = FieldElement;
 
-    fn sub(self, rhs: FieldElement) -> FieldElement {
+    fn add(self, rhs: FieldElement) -> FieldElement {
+        &self + &rhs
+    }
+}
+
+impl Sub for &FieldElement {
+    type Output = FieldElement;
+
+    fn sub(self, rhs: &FieldElement) -> FieldElement {
         let f = self.0;
         let other = rhs.0;
 
@@ -416,10 +452,26 @@ impl Sub for FieldElement {
     }
 }
 
-impl Mul for FieldElement {
+impl Sub for FieldElement {
     type Output = FieldElement;
 
-    fn mul(self, rhs: FieldElement) -> FieldElement {
+    fn sub(self, rhs: FieldElement) -> FieldElement {
+        &self - &rhs
+    }
+}
+
+impl Sub<&FieldElement> for FieldElement {
+    type Output = FieldElement;
+
+    fn sub(self, rhs: &FieldElement) -> FieldElement {
+        &self - rhs
+    }
+}
+
+impl Mul for &FieldElement {
+    type Output = FieldElement;
+
+    fn mul(self, rhs: &FieldElement) -> FieldElement {
         let f = self.0;
         let g = rhs.0;
         let f0 = f[0];
@@ -615,5 +667,13 @@ impl Mul for FieldElement {
         }
 
         FieldElement(output)
+    }
+}
+
+impl Mul for FieldElement {
+    type Output = FieldElement;
+
+    fn mul(self, rhs: FieldElement) -> FieldElement {
+        &self * &rhs
     }
 }

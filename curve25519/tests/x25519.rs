@@ -1,4 +1,4 @@
-use c25519::x25519::*;
+use ec25519::x25519::*;
 use serde_json::{from_str, Value};
 use std::fs;
 
@@ -180,7 +180,7 @@ fn test_wycheproof() {
     for test in tests {
         let public = hex::decode(test["public"].as_str().unwrap()).unwrap();
         let private = hex::decode(test["private"].as_str().unwrap()).unwrap();
-       
+
         let shared = hex::decode(test["shared"].as_str().unwrap()).unwrap();
 
         assert_eq!(scalarmult(&private, &public).to_vec(), shared);
