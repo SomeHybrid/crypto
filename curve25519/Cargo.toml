@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 pyo3 = "0.19"
-zeroize = "1.6"
+zeroize = { version = "1.6", features = ["derive"] }
 
 [dev-dependencies]
 hex = "0.4"
