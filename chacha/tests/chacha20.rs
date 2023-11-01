@@ -1,4 +1,4 @@
-use ::chacha::*;
+use ::chacha20::*;
 use serde_json::{from_str, Value};
 use std::fs;
 

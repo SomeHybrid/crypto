@@ -1,10 +1,9 @@
 // A Rust implementation of XChaCha-Poly1305
 // This implementation defaults to 20 rounds
-use crate::backend;
+use crate::backends;
 use crate::utils::*;
 
 use crate::poly1305::Poly1305;
-use core::simd::u32x4;
 use pyo3::exceptions::PyAssertionError;
 use pyo3::prelude::*;
 use std::borrow::Cow;
@@ -16,36 +15,30 @@ pub struct ChaCha {
 }
 
 impl ChaCha {
-    fn keystream(&self, nonce: &[u8], counter: u32) -> [u8; 64] {
-        let mut state: [u32x4; 4] = [
-            u32x4::from_array([0x61707865, 0x3320646e, 0x79622d32, 0x6b206574]),
-            u32x4::from_array([
+    fn keystream(&self, nonce: &[u8], counter: u32) -> [u8; 128] {
+        let mut state: [[u32; 4]; 4] = [
+            [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+            [
                 from_le_bytes(&self.key[0..4]),
                 from_le_bytes(&self.key[4..8]),
                 from_le_bytes(&self.key[8..12]),
                 from_le_bytes(&self.key[12..16]),
-            ]),
-            u32x4::from_array([
+            ],
+            [
                 from_le_bytes(&self.key[16..20]),
                 from_le_bytes(&self.key[20..24]),
                 from_le_bytes(&self.key[24..28]),
                 from_le_bytes(&self.key[28..]),
-            ]),
-            u32x4::from_array([
+            ],
+            [
                 counter,
                 from_le_bytes(&nonce[0..4]),
                 from_le_bytes(&nonce[4..8]),
                 from_le_bytes(&nonce[8..12]),
-            ]),
+            ],
         ];
 
-        let working_state = backend::rounds(state.clone(), self.rounds);
-
-        for i in 0..4 {
-            state[i] += working_state[i];
-        }
-
-        deserialize(state)
+        backends::rounds(state.clone(), self.rounds, false)
     }
 }
 
@@ -81,7 +74,7 @@ impl ChaCha {
 
         let mut ciphertext: Vec<u8> = Vec::new();
 
-        for (index, block) in plaintext.chunks(64).enumerate() {
+        for (index, block) in plaintext.chunks(128).enumerate() {
             let keystream = self.keystream(nonce, counter + index as u32);
 
             for (key, chunk) in block.iter().zip(keystream) {
@@ -194,37 +187,31 @@ impl ChaChaPoly1305 {
 }
 
 pub fn hchacha(key: &[u8], nonce: &[u8], rounds: usize) -> Vec<u8> {
-    let mut state: [u32x4; 4] = [
-        u32x4::from_array([0x61707865, 0x3320646e, 0x79622d32, 0x6b206574]),
-        u32x4::from_array([
+    let mut state: [[u32; 4]; 4] = [
+        [0x61707865, 0x3320646e, 0x79622d32, 0x6b206574],
+        [
             from_le_bytes(&key[0..4]),
             from_le_bytes(&key[4..8]),
             from_le_bytes(&key[8..12]),
             from_le_bytes(&key[12..16]),
-        ]),
-        u32x4::from_array([
+        ],
+        [
             from_le_bytes(&key[16..20]),
             from_le_bytes(&key[20..24]),
             from_le_bytes(&key[24..28]),
             from_le_bytes(&key[28..]),
-        ]),
-        u32x4::from_array([
+        ],
+        [
             from_le_bytes(&nonce[0..4]),
             from_le_bytes(&nonce[4..8]),
             from_le_bytes(&nonce[8..12]),
             from_le_bytes(&nonce[12..]),
-        ]),
+        ],
     ];
 
-    state = backend::rounds(state, rounds);
+    let data = backends::rounds(state, rounds, true);
 
-    let mut result: Vec<u8> = Vec::new();
-
-    for item in state[0].as_array().iter().chain(state[3].as_array()) {
-        result.extend_from_slice(&item.to_le_bytes());
-    }
-
-    result
+    [&data[0..16], &data[48..64]].concat().to_vec()
 }
 
 #[pyclass]

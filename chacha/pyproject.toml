@@ -3,7 +3,7 @@ requires = ["maturin>=1.1,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "chacha"
+name = "chacha20"
 version = "0.1"
 description = "A vectorized implementation of the ChaCha stream cipher."
 license = { text = "MIT" }

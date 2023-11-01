@@ -1,5 +1,5 @@
-#![feature(portable_simd)]
-pub(crate) mod backend;
+#![feature(stdsimd)]
+pub(crate) mod backends;
 pub mod cipher;
 pub mod poly1305;
 pub(crate) mod utils;
@@ -9,7 +9,7 @@ pub use crate::cipher::*;
 use pyo3::prelude::*;
 
 #[pymodule]
-fn chacha(_py: Python, m: &PyModule) -> PyResult<()> {
+fn chacha20(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<ChaCha>()?;
     m.add_class::<XChaChaPoly1305>()?;
     m.add_class::<ChaChaPoly1305>()?;

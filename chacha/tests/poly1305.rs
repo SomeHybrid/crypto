@@ -1,4 +1,4 @@
-use chacha::poly1305::Poly1305;
+use chacha20::poly1305::Poly1305;
 
 #[test]
 fn test_poly1305_1() {
