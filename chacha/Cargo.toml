@@ -8,7 +8,11 @@ edition = "2021"
 name = "chacha20"
 crate-type = ["cdylib", "rlib"]
 
+[target]
+rustflags = { target-cpu = "native" }
+
 [dependencies]
+cfg-if = "1.0.0"
 pyo3 = "0.19"
 
 [dev-dependencies]

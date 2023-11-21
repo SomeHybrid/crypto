@@ -5,6 +5,7 @@ pub mod poly1305;
 pub(crate) mod utils;
 
 pub use crate::cipher::*;
+pub use crate::backends::hchacha;
 
 use pyo3::prelude::*;
 

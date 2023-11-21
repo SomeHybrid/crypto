@@ -3,6 +3,33 @@ use serde_json::{from_str, Value};
 use std::fs;
 
 #[test]
+fn test_keystream() {
+    let key = [
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
+        0x0f, 0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1a, 0x1b, 0x1c, 0x1d,
+        0x1e, 0x1f,
+    ];
+
+    let nonce = [
+        0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x4a, 0x00, 0x00, 0x00, 0x00,
+    ];
+
+    let expected_output = [
+        0x10, 0xf1, 0xe7, 0xe4, 0xd1, 0x3b, 0x59, 0x15, 0x50, 0x0f, 0xdd, 0x1f, 0xa3, 0x20, 0x71,
+        0xc4, 0xc7, 0xd1, 0xf4, 0xc7, 0x33, 0xc0, 0x68, 0x03, 0x04, 0x22, 0xaa, 0x9a, 0xc3, 0xd4,
+        0x6c, 0x4e, 0xd2, 0x82, 0x64, 0x46, 0x07, 0x9f, 0xaa, 0x09, 0x14, 0xc2, 0xd7, 0x05, 0xd9,
+        0x8b, 0x02, 0xa2, 0xb5, 0x12, 0x9c, 0xd1, 0xde, 0x16, 0x4e, 0xb9, 0xcb, 0xd0, 0x83, 0xe8,
+        0xa2, 0x50, 0x3c, 0x4e,
+    ];
+
+    let chacha = ChaCha::new(key.to_vec(), None).unwrap();
+
+    let output = chacha.keystream(&nonce, 1);
+
+    assert_eq!(output, expected_output);
+}
+
+#[test]
 fn test_chacha() {
     let key = [
         0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e,
@@ -27,11 +54,9 @@ fn test_chacha() {
 
     let plaintext = b"Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.";
 
-    let counter = 1u32;
-
     let chacha = ChaCha::new(key.to_vec(), None).unwrap();
 
-    let output = chacha.encrypt(plaintext, &nonce, counter).unwrap();
+    let output = chacha.encrypt(plaintext, &nonce);
 
     assert_eq!(output, expected_output);
 }
@@ -64,12 +89,10 @@ fn test_chacha_aead() {
         0xe2, 0x6a, 0x7e, 0x90, 0x2e, 0xcb, 0xd0, 0x60, 0x06, 0x91,
     ];
 
-    let counter = 1u32;
-
     let plaintext = b"Ladies and Gentlemen of the class of '99: If I could offer you only one tip for the future, sunscreen would be it.";
 
     let chacha = ChaChaPoly1305::new(key.to_vec(), None).unwrap();
-    let output = chacha.encrypt(plaintext, &nonce, &aead, counter).unwrap();
+    let output = chacha.encrypt(plaintext, &nonce, &aead).unwrap();
 
     assert_eq!(output, expected_output.to_vec());
 }
@@ -92,9 +115,9 @@ fn test_hchacha() {
         213, 138, 116, 168, 83, 193, 46, 196, 19, 38, 211, 236, 220,
     ];
 
-    let output = hchacha(&key, &nonce, 20);
+    let output = hchacha(&key, &nonce);
 
-    assert_eq!(output, expected_output.to_vec());
+    assert_eq!(output, expected_output);
 }
 
 #[test]
@@ -135,7 +158,7 @@ fn test_xchacha() {
     ];
 
     let xchacha = XChaChaPoly1305::new(key.to_vec(), None).unwrap();
-    let output = xchacha.encrypt(&plaintext, &nonce, &aad, 1).unwrap();
+    let output = xchacha.encrypt(&plaintext, &nonce, &aad).unwrap();
 
     assert_eq!(output, expected_ct.to_vec());
 }
@@ -171,9 +194,9 @@ fn test_tag() {
     ];
 
     let xchacha = XChaChaPoly1305::new(key.to_vec(), None).unwrap();
-    let output = xchacha.encrypt(&plaintext, &nonce, &aad, 1).unwrap();
+    let output = xchacha.encrypt(&plaintext, &nonce, &aad).unwrap();
 
-    let _ = match xchacha.decrypt(&output, &nonce, &false_aad, 1) {
+    let _ = match xchacha.decrypt(&output, &nonce, &false_aad) {
         Ok(_) => Err(String::from("Tag checking failed")),
         Err(_) => Ok(()),
     };
@@ -217,10 +240,10 @@ fn test_decrypt() {
 
     let xchacha = XChaChaPoly1305::new(key.to_vec(), None).unwrap();
 
-    let ciphertext = xchacha.encrypt(&plaintext, &nonce, &aad, 1).unwrap();
+    let ciphertext = xchacha.encrypt(&plaintext, &nonce, &aad).unwrap();
     assert_eq!(ciphertext, expected.to_vec());
 
-    let _ = match xchacha.decrypt(&ciphertext, &nonce, &aad, 1) {
+    let _ = match xchacha.decrypt(&ciphertext, &nonce, &aad) {
         Ok(_) => Ok(()),
         Err(_) => Err(String::from("Tag checking failed")),
     };
@@ -248,10 +271,10 @@ fn test_chacha20_poly1305_wycheproof() {
 
         let data;
         if test["result"].as_str().unwrap() == "valid" {
-            data = chacha.encrypt(&pt, &nonce, &aad, 1).unwrap();
+            data = chacha.encrypt(&pt, &nonce, &aad).unwrap();
             assert_eq!(data, expected);
         } else {
-            let output = chacha.encrypt(&pt, &nonce, &aad, 1);
+            let output = chacha.encrypt(&pt, &nonce, &aad);
             if output.is_err() {
                 continue;
             }
@@ -284,13 +307,13 @@ fn test_xchacha20_poly1305_wycheproof() {
         let chacha = XChaChaPoly1305::new(key, None).unwrap();
 
         if test["result"].as_str().unwrap() == "valid" {
-            assert_eq!(chacha.encrypt(&pt, &nonce, &aad, 1).unwrap(), expected);
+            assert_eq!(chacha.encrypt(&pt, &nonce, &aad).unwrap(), expected);
         } else {
-            if chacha.encrypt(&pt, &nonce, &aad, 1).is_err() {
+            if chacha.encrypt(&pt, &nonce, &aad).is_err() {
                 continue;
             }
 
-            assert_ne!(chacha.encrypt(&pt, &nonce, &aad, 1).unwrap(), expected);
+            assert_ne!(chacha.encrypt(&pt, &nonce, &aad).unwrap(), expected);
         }
     }
 }

@@ -1,11 +1,8 @@
 // based from the RustCrypto/universal-hashes implementation and the rust-crypto implementation
-use pyo3::prelude::*;
-
 fn u8tou32(items: &[u8]) -> u32 {
     u32::from_le_bytes([items[0], items[1], items[2], items[3]])
 }
 
-#[pyclass]
 pub struct Poly1305 {
     r: [u32; 5],
     h: [u32; 5],
@@ -119,10 +116,8 @@ impl Poly1305 {
     }
 }
 
-#[pymethods]
 impl Poly1305 {
-    #[new]
-    pub fn new(key: Vec<u8>) -> Poly1305 {
+    pub fn new(key: &[u8]) -> Poly1305 {
         let mut r = [0u32; 5];
         r[0] = (u8tou32(&key[0..4])) & 0x3ffffff;
         r[1] = (u8tou32(&key[3..7]) >> 2) & 0x3ffff03;
