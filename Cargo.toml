@@ -1,0 +1,16 @@
+[package]
+name = "raycrypt"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "raycrypt"
+
+[dependencies]
+zeroize = {version = "1.7",features = ["zeroize_derive"]}
+cfg-if = "1.0"
+
+[dev-dependencies]
+hex = "0.4"
+serde_json = "1.0"
