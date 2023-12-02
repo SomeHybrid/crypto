@@ -1,4 +1,4 @@
-use std::ops::{Add, Mul, Sub};
+use core::ops::{Add, Index, IndexMut, Mul, Sub};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
 fn load3(s: &[u8]) -> i64 {
@@ -18,7 +18,7 @@ fn load4(s: &[u8]) -> i64 {
     result as i64
 }
 
-#[derive(Clone, ZeroizeOnDrop, Zeroize)]
+#[derive(Clone, Copy, Zeroize)]
 pub struct FieldElement([i32; 10]);
 
 impl PartialEq for FieldElement {
@@ -187,6 +187,25 @@ impl FieldElement {
         }
 
         FieldElement(g)
+    }
+
+    pub fn cmov(&mut self, other: FieldElement, swap: i32) {
+        let mut x = [0i32; 10];
+
+        let b = -swap;
+
+        for i in 0..10 {
+            x[i] = (&self)[i] ^ (&other)[i];
+            x[i] &= b;
+        }
+
+        let mut output = FieldElement::zero();
+
+        for i in 0..10 {
+            output[i] = (&self)[i] ^ (&other)[i];
+        }
+
+        *self = output
     }
 
     pub fn square(&self) -> FieldElement {
@@ -403,6 +422,48 @@ impl FieldElement {
 
     pub fn negative(&self) -> bool {
         self.to_bytes()[0] & 1 == 1
+    }
+
+    pub fn pow25523(&self) -> FieldElement {
+        let z2 = &self.square();
+        let z8 = (0..2).fold(z2.clone(), |x, _| x.square());
+        let z9 = self.clone() * z8;
+        let z11 = z2.clone() * z9.clone();
+        let z22 = z11.square();
+        let z_5_0 = z9.clone() * z22;
+        let z_10_5 = (0..5).fold(z_5_0.clone(), |x, _| x.square());
+        let z_10_0 = z_10_5 * z_5_0;
+        let z_20_10 = (0..10).fold(z_10_0.clone(), |x, _| x.square());
+        let z_20_0 = &z_20_10 * &z_10_0;
+        let z_40_20 = (0..20).fold(z_20_0.clone(), |x, _| x.square());
+        let z_40_0 = z_40_20 * z_20_0;
+        let z_50_10 = (0..10).fold(z_40_0, |x, _| x.square());
+        let z_50_0 = z_50_10 * z_10_0;
+        let z_100_50 = (0..50).fold(z_50_0.clone(), |x, _| x.square());
+        let z_100_0 = &z_100_50 * &z_50_0;
+        let z_200_100 = (0..100).fold(z_100_0.clone(), |x, _| x.square());
+        let z_200_0 = z_200_100 * z_100_0;
+        let z_250_50 = (0..50).fold(z_200_0, |x, _| x.square());
+        let z_250_0 = z_250_50 * z_50_0;
+        let z_252_2 = (0..2).fold(z_250_0, |x, _| x.square());
+        let z_252_3 = z_252_2.clone() * self.clone();
+
+        z_252_3
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.to_bytes().iter().fold(0, |acc, x| acc | x) == 0
+    }
+
+    pub fn is_negative(&self) -> bool {
+        (self.to_bytes()[0] & 1) != 0
+    }
+
+    pub fn neg(&self) -> FieldElement {
+        FieldElement([
+            -self[0], -self[1], -self[2], -self[3], -self[4], -self[5], -self[6], -self[7],
+            -self[8], -self[9],
+        ])
     }
 }
 
@@ -669,5 +730,19 @@ impl Mul for FieldElement {
 
     fn mul(self, rhs: FieldElement) -> FieldElement {
         &self * &rhs
+    }
+}
+
+impl Index<usize> for FieldElement {
+    type Output = i32;
+
+    fn index(&self, index: usize) -> &i32 {
+        &self.0[index]
+    }
+}
+
+impl IndexMut<usize> for FieldElement {
+    fn index_mut(&mut self, index: usize) -> &mut i32 {
+        &mut self.0[index]
     }
 }

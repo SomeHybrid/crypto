@@ -1,4 +1,4 @@
-use crate::utils::from_le_bytes;
+use crate::utils::*;
 
 pub struct Poly1305 {
     r: [u32; 5],
@@ -171,17 +171,6 @@ impl Poly1305 {
     }
 
     pub fn verify(&mut self, other: &[u8]) -> bool {
-        let tag = self.tag();
-        let mut dif = 0u32;
-        for i in 0..16 {
-            dif |= (tag[i] ^ other[i]) as u32;
-        }
-
-        dif = (dif.wrapping_sub(1)) >> 31;
-        if (dif & 1) != 0 {
-            return true;
-        } else {
-            return false;
-        }
+        const_time_eq(&self.tag(), other)
     }
 }

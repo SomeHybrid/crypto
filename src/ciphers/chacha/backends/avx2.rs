@@ -1,7 +1,7 @@
 #[cfg(target_arch = "x86")]
-use std::arch::x86::*;
+use core::arch::x86::*;
 #[cfg(target_arch = "x86_64")]
-use std::arch::x86_64::*;
+use core::arch::x86_64::*;
 
 use crate::utils::from_le_bytes;
 
@@ -170,29 +170,6 @@ impl Backend {
 }
 
 impl Backend {
-    pub fn keystream(&self, nonce: &[u8], counter: u32) -> [u8; 64] {
-        unsafe {
-            let nonce_block = [
-                counter,
-                from_le_bytes(&nonce[0..4]),
-                from_le_bytes(&nonce[4..8]),
-                from_le_bytes(&nonce[8..12]),
-            ];
-
-            let nonce_vector = _mm_loadu_si128(nonce_block.as_ptr() as *const __m128i);
-
-            let nonce = _mm256_broadcastsi128_si256(nonce_vector);
-            let ks = self._keystream(nonce);
-
-            let mut output = [0u8; 64];
-
-            _mm256_storeu_si256(output.as_mut_ptr() as *mut __m256i, ks[0]);
-            _mm256_storeu_si256(output[32..].as_mut_ptr() as *mut __m256i, ks[1]);
-
-            output
-        }
-    }
-
     pub fn encrypt(&self, plaintext: &[u8], nonce: &[u8]) -> Vec<u8> {
         unsafe { self._encrypt(plaintext, nonce) }
     }
@@ -202,6 +179,3 @@ pub(crate) fn encrypt(key: Vec<u8>, plaintext: &[u8], nonce: &[u8], rounds: usiz
     Backend::new(key, rounds).encrypt(plaintext, nonce)
 }
 
-pub(crate) fn keystream(key: Vec<u8>, nonce: &[u8], counter: u32, rounds: usize) -> [u8; 64] {
-    Backend::new(key, rounds).keystream(nonce, counter)
-}
