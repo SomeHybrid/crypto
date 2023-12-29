@@ -3,15 +3,15 @@ pub use crate::errors::InvalidMac;
 pub use crate::macs::poly1305::Poly1305;
 
 pub fn encrypt(
-    key: Vec<u8>,
+    key: &[u8],
     plaintext: &[u8],
     nonce: &[u8],
     ad: &[u8],
     rounds: Option<usize>,
 ) -> Vec<u8> {
-    let ciphertext = chacha::encrypt(key.clone(), plaintext, nonce, rounds);
+    let ciphertext = chacha::encrypt(key, plaintext, nonce, rounds);
 
-    let poly1305_key = chacha::keystream(key.clone(), nonce, 0, rounds);
+    let poly1305_key = chacha::keystream(key, nonce, 0, rounds);
     let mut poly1305 = Poly1305::new(&poly1305_key);
 
     poly1305.update(ad);
@@ -26,15 +26,15 @@ pub fn encrypt(
 }
 
 pub fn decrypt(
-    key: Vec<u8>,
+    key: &[u8],
     ciphertext: &[u8],
     nonce: &[u8],
     ad: &[u8],
     rounds: Option<usize>,
 ) -> Result<Vec<u8>, InvalidMac> {
-    let plaintext = chacha::decrypt(key.clone(), ciphertext, nonce, rounds);
+    let plaintext = chacha::decrypt(key, ciphertext, nonce, rounds);
 
-    let poly1305_key = chacha::keystream(key.clone(), nonce, 0, rounds);
+    let poly1305_key = chacha::keystream(key, nonce, 0, rounds);
     let mut poly1305 = Poly1305::new(&poly1305_key);
 
     poly1305.update(ad);

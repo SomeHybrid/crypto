@@ -104,12 +104,11 @@ impl State {
 
     pub fn enc(&mut self, src: &[u8]) -> [u8; 16] {
         let msg = Block::load(src);
-        let blocks = &self.0;
         let dst = msg
-            .xor(blocks[5])
-            .xor(blocks[4])
-            .xor(blocks[1])
-            .xor(blocks[2].and(blocks[3]))
+            .xor(self[5])
+            .xor(self[4])
+            .xor(self[1])
+            .xor(self[2].and(self[3]))
             .store();
 
         self.update(msg);
