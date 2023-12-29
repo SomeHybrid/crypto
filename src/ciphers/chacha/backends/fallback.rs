@@ -32,16 +32,16 @@ fn double_round(mut block: [u32; 16]) -> [u32; 16] {
     block
 }
 
-pub struct Backend {
+pub struct ChaCha {
     key: Vec<u8>,
     rounds: usize,
 }
 
-impl Backend {
-    pub fn new(key: Vec<u8>, rounds: usize) -> Backend {
-        Backend {
-            key,
-            rounds: rounds / 2,
+impl ChaCha {
+    pub fn new(key: &[u8], rounds: Option<usize>) -> ChaCha {
+        ChaCha {
+            key: key.to_vec(),
+            rounds: rounds.unwrap_or(20) / 2,
         }
     }
 
@@ -127,12 +127,4 @@ pub fn hchacha(key: &[u8], nonce: &[u8], rounds: usize) -> [u8; 32] {
     }
 
     result
-}
-
-pub(crate) fn encrypt(key: Vec<u8>, plaintext: &[u8], nonce: &[u8], rounds: usize) -> Vec<u8> {
-    Backend::new(key, rounds).encrypt(plaintext, nonce)
-}
-
-pub(crate) fn keystream(key: Vec<u8>, nonce: &[u8], counter: u32, rounds: usize) -> [u8; 64] {
-    Backend::new(key, rounds).keystream(nonce, counter)
 }

@@ -85,7 +85,7 @@ pub unsafe fn rounds(data: [__m128i; 4], rounds: usize, hchacha: bool) -> [__m12
     stuff
 }
 
-pub struct Backend {
+pub struct ChaCha {
     state: [__m128i; 3],
     rounds: usize,
 }
@@ -107,16 +107,16 @@ unsafe fn encrypt_block(block: &[u8], keystream: [__m128i; 4], ciphertext: &mut 
     }
 }
 
-impl Backend {
-    pub fn new(key: Vec<u8>, rounds: usize) -> Self {
+impl ChaCha {
+    pub fn new(key: &[u8], rounds: Option<usize>) -> Self {
         unsafe {
-            Backend {
+            ChaCha {
                 state: [
                     _mm_loadu_si128(SIGMA.as_ptr() as *const __m128i),
                     _mm_loadu_si128(key.as_ptr() as *const __m128i),
                     _mm_loadu_si128(key[16..].as_ptr() as *const __m128i),
                 ],
-                rounds,
+                rounds: rounds.unwrap_or(20),
             }
         }
     }
@@ -153,7 +153,7 @@ impl Backend {
     }
 }
 
-impl Backend {
+impl ChaCha {
     pub fn keystream(&self, nonce: &[u8], counter: u32) -> [u8; 64] {
         unsafe {
             let nonce_block = [
@@ -169,7 +169,7 @@ impl Backend {
 
             let mut output = [0u8; 64];
 
-            for (index, i) in ks[..2].iter().enumerate() {
+            for (index, i) in ks.iter().enumerate() {
                 _mm_storeu_si128((output.as_mut_ptr() as *mut __m128i).add(index), *i);
             }
 
@@ -182,7 +182,7 @@ impl Backend {
     }
 }
 
-pub fn hchacha(key: &[u8], nonce: &[u8], rounds: usize) -> [u8; 32] {
+pub fn hchacha(key: &[u8], nonce: &[u8], rounds: Option<usize>) -> [u8; 32] {
     unsafe {
         let mut state = [
             _mm_loadu_si128(SIGMA.as_ptr() as *const __m128i),
@@ -191,7 +191,7 @@ pub fn hchacha(key: &[u8], nonce: &[u8], rounds: usize) -> [u8; 32] {
             _mm_loadu_si128(nonce.as_ptr() as *const __m128i),
         ];
 
-        for _ in 0..(rounds / 2) {
+        for _ in 0..(rounds.unwrap_or(20) / 2) {
             state = double_quarter_round(state);
         }
 
@@ -203,12 +203,4 @@ pub fn hchacha(key: &[u8], nonce: &[u8], rounds: usize) -> [u8; 32] {
 
         output
     }
-}
-
-pub(crate) fn encrypt(key: Vec<u8>, plaintext: &[u8], nonce: &[u8], rounds: usize) -> Vec<u8> {
-    Backend::new(key, rounds).encrypt(plaintext, nonce)
-}
-
-pub(crate) fn keystream(key: Vec<u8>, nonce: &[u8], counter: u32, rounds: usize) -> [u8; 64] {
-    Backend::new(key, rounds).keystream(nonce, counter)
 }
