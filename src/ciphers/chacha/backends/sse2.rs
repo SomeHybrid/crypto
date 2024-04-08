@@ -62,12 +62,12 @@ unsafe fn double_quarter_round(mut data: [__m128i; 4]) -> [__m128i; 4] {
 
 #[inline]
 #[target_feature(enable = "sse2")]
-pub unsafe fn rounds(data: [__m128i; 4], rounds: usize, hchacha: bool) -> [__m128i; 4] {
+pub unsafe fn rounds(data: [__m128i; 4], hchacha: bool) -> [__m128i; 4] {
     let mut stuff = data.clone();
 
     let original = stuff.clone();
 
-    for _ in 0..(rounds / 2) {
+    for _ in 0..10 {
         stuff = double_quarter_round(stuff);
     }
 
@@ -85,48 +85,63 @@ pub unsafe fn rounds(data: [__m128i; 4], rounds: usize, hchacha: bool) -> [__m12
     stuff
 }
 
-pub struct ChaCha {
+pub struct ChaCha20 {
     state: [__m128i; 3],
-    rounds: usize,
 }
 
-unsafe fn encrypt_block(block: &[u8], keystream: [__m128i; 4], ciphertext: &mut Vec<u8>) {
+unsafe fn _encrypt_block(block_ptr: *const __m128i, keystream: __m128i, ct_pointer: *mut __m128i) {
+    let plaintext_block = _mm_loadu_si128(block_ptr);
+
+    let ciphertext_block = _mm_xor_si128(plaintext_block, keystream);
+
+    _mm_storeu_si128(ct_pointer, ciphertext_block);
+}
+
+unsafe fn encrypt_block(
+    block: &[u8],
+    keystream: [__m128i; 4],
+    mut ct_pointer: *mut __m128i,
+    ciphertext: &mut Vec<u8>,
+) {
+    let mut ptr = block.as_ptr() as *const __m128i;
     for i in 0..4 {
         if i * 16 > block.len() {
-            break;
+            return;
         }
 
-        let plaintext_block = _mm_loadu_si128(block[i * 16..].as_ptr() as *const __m128i);
+        if (i + 1) * 16 > block.len() {
+            let mut output_block = [0u8; 16];
+            _encrypt_block(ptr, keystream[i], output_block.as_mut_ptr() as *mut __m128i);
 
-        let ciphertext_block = _mm_xor_si128(plaintext_block, keystream[i]);
+            let start = ciphertext.len() - (ciphertext.len() % 16);
+            let end = ciphertext.len();
 
-        let mut output_block = [0u8; 16];
-        _mm_storeu_si128(output_block.as_mut_ptr() as *mut __m128i, ciphertext_block);
+            ciphertext[start..].copy_from_slice(&output_block[..(end - start)]);
 
-        ciphertext.append(&mut output_block.to_vec());
+            return;
+        }
+
+        _encrypt_block(ptr, keystream[i], ct_pointer);
+        ptr = ptr.add(1);
+        ct_pointer = ct_pointer.add(1);
     }
 }
 
-impl ChaCha {
-    pub fn new(key: &[u8], rounds: Option<usize>) -> Self {
+impl ChaCha20 {
+    pub fn new(key: &[u8]) -> Self {
         unsafe {
-            ChaCha {
+            ChaCha20 {
                 state: [
                     _mm_loadu_si128(SIGMA.as_ptr() as *const __m128i),
                     _mm_loadu_si128(key.as_ptr() as *const __m128i),
                     _mm_loadu_si128(key[16..].as_ptr() as *const __m128i),
                 ],
-                rounds: rounds.unwrap_or(20),
             }
         }
     }
 
     unsafe fn _keystream(&self, nonce: &__m128i) -> [__m128i; 4] {
-        rounds(
-            [self.state[0], self.state[1], self.state[2], *nonce],
-            self.rounds,
-            false,
-        )
+        rounds([self.state[0], self.state[1], self.state[2], *nonce], false)
     }
 
     unsafe fn _encrypt(&self, plaintext: &[u8], nonce: &[u8]) -> Vec<u8> {
@@ -139,21 +154,24 @@ impl ChaCha {
 
         let mut nonce = _mm_loadu_si128(nonce_block.as_ptr() as *const __m128i);
 
-        let mut ciphertext: Vec<u8> = Vec::new();
+        let mut ciphertext: Vec<u8> = vec![0u8; plaintext.len()];
+        let mut ct_pointer = ciphertext.as_mut_ptr() as *mut __m128i;
 
         for block in plaintext.chunks(64) {
             let keystream = self._keystream(&nonce);
 
             nonce = _mm_add_epi32(nonce, _mm_set_epi32(0, 0, 0, 1));
 
-            encrypt_block(block, keystream, &mut ciphertext);
+            encrypt_block(block, keystream, ct_pointer, &mut ciphertext);
+
+            ct_pointer = ct_pointer.add(4);
         }
 
         ciphertext[..plaintext.len()].to_vec()
     }
 }
 
-impl ChaCha {
+impl ChaCha20 {
     pub fn keystream(&self, nonce: &[u8], counter: u32) -> [u8; 64] {
         unsafe {
             let nonce_block = [
@@ -182,25 +200,42 @@ impl ChaCha {
     }
 }
 
-pub fn hchacha(key: &[u8], nonce: &[u8], rounds: Option<usize>) -> [u8; 32] {
-    unsafe {
-        let mut state = [
-            _mm_loadu_si128(SIGMA.as_ptr() as *const __m128i),
-            _mm_loadu_si128(key.as_ptr() as *const __m128i),
-            _mm_loadu_si128(key[16..].as_ptr() as *const __m128i),
-            _mm_loadu_si128(nonce.as_ptr() as *const __m128i),
-        ];
+pub struct HChaCha20 {
+    state: [__m128i; 3],
+}
 
-        for _ in 0..(rounds.unwrap_or(20) / 2) {
-            state = double_quarter_round(state);
+impl HChaCha20 {
+    #[inline(always)]
+    pub fn new(key: &[u8]) -> HChaCha20 {
+        unsafe {
+            HChaCha20 {
+                state: [
+                    _mm_loadu_si128(SIGMA.as_ptr() as *const __m128i),
+                    _mm_loadu_si128(key.as_ptr() as *const __m128i),
+                    _mm_loadu_si128(key[16..].as_ptr() as *const __m128i),
+                ],
+            }
         }
+    }
 
-        let mut output = [0u8; 32];
+    pub fn keystream(&self, nonce: &[u8]) -> [u8; 32] {
+        unsafe {
+            let out_state = rounds(
+                [
+                    self.state[0],
+                    self.state[1],
+                    self.state[2],
+                    _mm_loadu_si128(nonce.as_ptr() as *const __m128i),
+                ],
+                true,
+            );
 
-        _mm_storeu_si128(output.as_mut_ptr() as *mut __m128i, state[0]);
+            let mut output = [0u8; 32];
 
-        _mm_storeu_si128(output[16..].as_mut_ptr() as *mut __m128i, state[3]);
+            _mm_storeu_si128(output.as_mut_ptr() as *mut __m128i, out_state[0]);
+            _mm_storeu_si128((output.as_mut_ptr() as *mut __m128i).add(1), out_state[3]);
 
-        output
+            output
+        }
     }
 }

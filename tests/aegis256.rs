@@ -38,6 +38,9 @@ fn test_aegis256_wycheproof() {
         let output = encrypt::<16>(&key, &pt, &nonce, &aad);
         if test["result"].as_str().unwrap() == "valid" {
             assert_eq!(output, expected);
+
+            let decrypted = decrypt::<16>(&key, &output, &nonce, &aad);
+            assert_eq!(decrypted.unwrap(), pt);
         } else {
             assert_ne!(output, expected);
         }

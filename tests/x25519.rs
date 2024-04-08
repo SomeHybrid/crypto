@@ -184,5 +184,12 @@ fn test_wycheproof() {
         let shared = hex::decode(test["shared"].as_str().unwrap()).unwrap();
 
         assert_eq!(scalarmult(&private, &public).to_vec(), shared);
+
+        let private = PrivateKey::new(&private).unwrap();
+
+        assert_eq!(
+            private.exchange(public.try_into().unwrap()).to_vec(),
+            shared
+        );
     }
 }

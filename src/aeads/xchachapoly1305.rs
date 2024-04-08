@@ -1,33 +1,37 @@
-use crate::aeads::chachapoly1305;
-use crate::ciphers::chacha::hchacha;
+use crate::aeads::chachapoly1305::ChaCha20Poly1305;
+use crate::ciphers::chacha::HChaCha20;
 use crate::errors::InvalidMac;
 
-pub fn encrypt(
-    key: &[u8],
-    plaintext: &[u8],
-    nonce: &[u8],
-    ad: &[u8],
-    rounds: Option<usize>,
-) -> Vec<u8> {
-    let subkey = hchacha(key, &nonce[0..16], rounds);
-
-    let mut chacha_nonce = [0u8; 12];
-    chacha_nonce[4..].copy_from_slice(&nonce[16..24]);
-
-    chachapoly1305::encrypt(&subkey, plaintext, &chacha_nonce, ad, rounds)
+pub struct XChaCha20Poly1305 {
+    hchacha: HChaCha20,
 }
 
-pub fn decrypt(
-    key: &[u8],
-    plaintext: &[u8],
-    nonce: &[u8],
-    ad: &[u8],
-    rounds: Option<usize>,
-) -> Result<Vec<u8>, InvalidMac> {
-    let subkey = hchacha(key, &nonce[0..16], rounds);
+impl XChaCha20Poly1305 {
+    pub fn new(key: &[u8]) -> XChaCha20Poly1305 {
+        XChaCha20Poly1305 {
+            hchacha: HChaCha20::new(key),
+        }
+    }
 
-    let mut chacha_nonce = [0u8; 12];
-    chacha_nonce[4..].copy_from_slice(&nonce[16..24]);
+    fn subkey(&self, nonce: &[u8]) -> ([u8; 32], [u8; 12]) {
+        let subkey = self.hchacha.keystream(nonce);
 
-    chachapoly1305::decrypt(&subkey, plaintext, &chacha_nonce, ad, rounds)
+        (subkey, [&[0u8; 4], &nonce[16..24]].concat().try_into().unwrap())
+    }
+
+    pub fn encrypt(&self, msg: &[u8], nonce: &[u8], ad: &[u8]) -> Vec<u8> {
+        let (subkey, encryption_nonce) = self.subkey(nonce);
+
+        let chacha = ChaCha20Poly1305::new(&subkey);
+
+        chacha.encrypt(msg, &encryption_nonce, ad)
+    }
+
+    pub fn decrypt(&self, ct: &[u8], nonce: &[u8], ad: &[u8]) -> Result<Vec<u8>, InvalidMac> {
+        let (subkey, encryption_nonce) = self.subkey(nonce);
+
+        let chacha = ChaCha20Poly1305::new(&subkey);
+
+        chacha.decrypt(ct, &encryption_nonce, ad)
+    }
 }

@@ -8,16 +8,24 @@ edition = "2021"
 name = "raycrypt"
 
 [dependencies]
-zeroize = {version = "1.7",features = ["zeroize_derive"]}
+zeroize = { version = "1.7", features = [ "zeroize_derive" ] }
 cfg-if = "1.0"
 sha2 = "0.10"
+getrandom = "0.2"
 
 [dev-dependencies]
 hex = "0.4"
 serde_json = "1.0"
 benchmark-simple = "0.1"
-chacha20poly1305 = "0.10"
 
 [[bench]]
 name = "bench"
 harness = false
+
+[profile.release]
+codegen-units = 1
+opt-level = 2
+
+[profile.dev]
+codegen-units = 16
+opt-level = 1

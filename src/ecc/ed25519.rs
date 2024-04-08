@@ -1,22 +1,10 @@
 // adapted from the rust-crypto ed25519 implementation
 
 use crate::ecc::ge::{ge_scalarmult_base, sc_muladd, sc_reduce, GeP2, GeP3};
+use crate::ecc::InvalidKey;
 use crate::utils::const_time_eq;
-use core::fmt::{Debug, Display};
 use getrandom::getrandom;
 use sha2::{Digest, Sha512};
-use std::error::Error;
-
-#[derive(Debug)]
-pub struct InvalidKey;
-
-impl Display for InvalidKey {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "This key is an invalid size!")
-    }
-}
-
-impl Error for InvalidKey {}
 
 fn check_s_lt_l(s: &[u8]) -> bool {
     static L: [u8; 32] = [
@@ -100,7 +88,7 @@ impl SigningKey {
 
         let mut secret: [u8; 64] = {
             let mut hasher = Sha512::new();
-            hasher.update(seed);
+            hasher.update(&seed);
             let mut hash_output: [u8; 64] = hasher.finalize().into();
             hash_output[0] &= 248;
             hash_output[31] &= 63;
@@ -116,9 +104,10 @@ impl SigningKey {
         for (dest, src) in (&mut secret[0..32]).iter_mut().zip(seed.iter()) {
             *dest = *src;
         }
+
         let mut secret: [u8; 64] = {
             let mut hasher = Sha512::new();
-            hasher.update(seed);
+            hasher.update(&seed);
             let mut hash_output: [u8; 64] = hasher.finalize().into();
             hash_output[0] &= 248;
             hash_output[31] &= 63;
@@ -136,6 +125,11 @@ impl SigningKey {
         }
 
         SigningKey::from(&secret)
+    }
+
+    /// Returns the public key for verifying
+    pub fn public_key(&self) -> VerifyingKey {
+        VerifyingKey::from(&self.public).unwrap()
     }
 
     /// Returns the public key for verifying
@@ -218,7 +212,7 @@ impl VerifyingKey {
 
         let mut hasher = Sha512::new();
         hasher.update(&signature[0..32]);
-        hasher.update(self.public);
+        hasher.update(&self.public);
         hasher.update(message);
         let mut hash: [u8; 64] = hasher.finalize().into();
         sc_reduce(&mut hash);

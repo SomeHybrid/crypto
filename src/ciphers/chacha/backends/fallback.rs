@@ -32,17 +32,13 @@ fn double_round(mut block: [u32; 16]) -> [u32; 16] {
     block
 }
 
-pub struct ChaCha {
+pub struct ChaCha20 {
     key: Vec<u8>,
-    rounds: usize,
 }
 
-impl ChaCha {
-    pub fn new(key: &[u8], rounds: Option<usize>) -> ChaCha {
-        ChaCha {
-            key: key.to_vec(),
-            rounds: rounds.unwrap_or(20) / 2,
-        }
+impl ChaCha20 {
+    pub fn new(key: &[u8]) -> ChaCha20 {
+        ChaCha20 { key: key.to_vec() }
     }
 
     pub fn keystream(&self, nonce: &[u8], counter: u32) -> [u8; 64] {
@@ -65,8 +61,14 @@ impl ChaCha {
             from_le_bytes(&nonce[12..]),
         ];
 
-        for _ in 0..self.rounds {
+        let mut original_state = state.clone();
+
+        for _ in 0..10 {
             state = double_round(state);
+        }
+
+        for (i, j) in state.iter_mut().zip(original_state.iter()) {
+            *i += *j;
         }
 
         let mut result = [0u8; 64];
@@ -93,38 +95,54 @@ impl ChaCha {
     }
 }
 
-pub fn hchacha(key: &[u8], nonce: &[u8], rounds: usize) -> [u8; 32] {
-    let mut state = [
-        0x61707865,
-        0x3320646e,
-        0x79622d32,
-        0x6b206574,
-        from_le_bytes(&key[0..4]),
-        from_le_bytes(&key[4..8]),
-        from_le_bytes(&key[8..12]),
-        from_le_bytes(&key[12..16]),
-        from_le_bytes(&key[16..20]),
-        from_le_bytes(&key[20..24]),
-        from_le_bytes(&key[24..28]),
-        from_le_bytes(&key[28..32]),
-        from_le_bytes(&nonce[0..4]),
-        from_le_bytes(&nonce[4..8]),
-        from_le_bytes(&nonce[8..12]),
-        from_le_bytes(&nonce[12..16]),
-    ];
+pub struct HChaCha20 {
+    state: [u32; 12],
+}
 
-    for _ in 0..(rounds / 2) {
-        state = double_round(state);
+impl HChaCha20 {
+    pub fn new(key: &[u8]) -> HChaCha20 {
+        let state = [
+            0x61707865,
+            0x3320646e,
+            0x79622d32,
+            0x6b206574,
+            from_le_bytes(&key[0..4]),
+            from_le_bytes(&key[4..8]),
+            from_le_bytes(&key[8..12]),
+            from_le_bytes(&key[12..16]),
+            from_le_bytes(&key[16..20]),
+            from_le_bytes(&key[20..24]),
+            from_le_bytes(&key[24..28]),
+            from_le_bytes(&key[28..32]),
+        ];
+
+        HChaCha20 { state }
     }
 
-    let mut result = [0u8; 32];
+    pub fn keystream(&self, nonce: &[u8]) -> [u8; 32] {
+        let mut state = [0u32; 16];
+        state[..12].copy_from_slice(&self.state);
 
-    for (result_chunk, chunk) in result
-        .chunks_exact_mut(4)
-        .zip(state[0..4].iter().chain(state[12..16].iter()))
-    {
-        result_chunk.copy_from_slice(&chunk.to_le_bytes());
+        state[12..16].copy_from_slice(&[
+            from_le_bytes(&nonce[0..4]),
+            from_le_bytes(&nonce[4..8]),
+            from_le_bytes(&nonce[8..12]),
+            from_le_bytes(&nonce[12..16]),
+        ]);
+
+        for _ in 0..10 {
+            state = double_round(state);
+        }
+
+        let mut result = [0u8; 32];
+
+        for (result_chunk, chunk) in result
+            .chunks_exact_mut(4)
+            .zip(state[0..4].iter().chain(state[12..16].iter()))
+        {
+            result_chunk.copy_from_slice(&chunk.to_le_bytes());
+        }
+
+        result
     }
-
-    result
 }

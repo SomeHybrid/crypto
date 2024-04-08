@@ -34,10 +34,10 @@ impl State {
         let n0 = Block::load(&nonce[..16]);
         let n1 = Block::load(&nonce[16..32]);
 
-        let k0_n0 = k0.xor(n0);
-        let k1_n1 = k1.xor(n1);
+        let k0_n0 = k0 ^ n0;
+        let k1_n1 = k1 ^ n1;
 
-        let mut output = State([k0_n0, k1_n1, c1, c0, k0.xor(c0), k1.xor(c1)]);
+        let mut output = State([k0_n0, k1_n1, c1, c0, k0 ^ c0, k1 ^ c1]);
 
         for _ in 0..4 {
             output.update(k0);
@@ -57,7 +57,7 @@ impl State {
         }
 
         *&mut self[0] = temp.enc(self[0]);
-        *&mut self[0] = self[0].xor(d);
+        *&mut self[0] = self[0] ^ d;
     }
 
     pub fn finalize<const MAC_LENGTH: usize>(
@@ -71,8 +71,7 @@ impl State {
                 ((mlen as u64) << 3).to_le_bytes(),
             ]
             .concat(),
-        )
-        .xor(self[3]);
+        ) ^ self[3];
 
         for _ in 0..7 {
             self.update(temp);
@@ -81,18 +80,12 @@ impl State {
         let mut mac = [0u8; MAC_LENGTH];
         if MAC_LENGTH == 16 {
             mac.copy_from_slice(
-                &self[5]
-                    .xor(self[4])
-                    .xor(self[3])
-                    .xor(self[2])
-                    .xor(self[1])
-                    .xor(self[0])
-                    .store(),
+                &(&self[5] ^ &self[4] ^ &self[3] ^ &self[2] ^ &self[1] ^ &self[0]).store(),
             );
         } else {
-            mac[0..16].copy_from_slice(&self[2].xor(self[1]).xor(self[0]).store());
+            mac[0..16].copy_from_slice(&(&self[2] ^ &self[1] ^ &self[0]).store());
 
-            mac[16..32].copy_from_slice(&self[5].xor(self[4]).xor(self[3]).store());
+            mac[16..32].copy_from_slice(&(&self[5] ^ &self[4] ^ &self[3]).store());
         };
 
         mac
@@ -104,12 +97,7 @@ impl State {
 
     pub fn enc(&mut self, src: &[u8]) -> [u8; 16] {
         let msg = Block::load(src);
-        let dst = msg
-            .xor(self[5])
-            .xor(self[4])
-            .xor(self[1])
-            .xor(self[2].and(self[3]))
-            .store();
+        let dst = (&msg ^ &self[5] ^ &self[4] ^ &self[1] ^ &self[2] & &self[3]).store();
 
         self.update(msg);
 
@@ -117,11 +105,7 @@ impl State {
     }
 
     pub fn dec(&mut self, src: &[u8]) -> [u8; 16] {
-        let msg = Block::load(src)
-            .xor(self[5])
-            .xor(self[4])
-            .xor(self[1])
-            .xor(self[2].and(self[3]));
+        let msg = &Block::load(src) ^ &self[5] ^ &self[4] ^ &self[1] ^ &self[2] & &self[3];
 
         self.update(msg);
 
@@ -135,8 +119,8 @@ impl State {
         let mut src_padded = [0u8; 16];
         src_padded[..len].copy_from_slice(src);
 
-        let z = self[5].xor(self[4]).xor(self[1]).xor(self[2].and(self[3]));
-        let msg_padded = Block::load(&src_padded).xor(z);
+        let z = &self[5] ^ &self[4] ^ &self[1] ^ &self[2] & &self[3];
+        let msg_padded = Block::load(&src_padded) ^ z;
 
         dst.copy_from_slice(&msg_padded.store());
         dst[len..].fill(0);

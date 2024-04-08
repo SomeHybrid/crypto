@@ -1,5 +1,11 @@
 use crate::ecc::field::FieldElement;
-use zeroize::Zeroize;
+use zeroize::{Zeroize, ZeroizeOnDrop};
+
+use crate::ecc::InvalidKey;
+
+const BASE: [u8; 32] = [
+    9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
 
 pub fn scalarmult(n: &[u8], p: &[u8]) -> [u8; 32] {
     let mut t = [0u8; 32];
@@ -57,7 +63,32 @@ pub fn scalarmult(n: &[u8], p: &[u8]) -> [u8; 32] {
 }
 
 pub fn scalarmult_base(x: &[u8]) -> [u8; 32] {
-    let mut base: [u8; 32] = [0; 32];
-    base[0] = 9;
-    scalarmult(x, base.as_ref())
+    scalarmult(x, BASE.as_ref())
+}
+
+pub type PublicKey = [u8; 32];
+
+#[derive(Zeroize, ZeroizeOnDrop)]
+pub struct PrivateKey {
+    key: [u8; 32],
+}
+
+impl PrivateKey {
+    pub fn new(key: &[u8]) -> Result<PrivateKey, InvalidKey> {
+        if key.len() != 32 {
+            return Err(InvalidKey);
+        }
+
+        let mut key: [u8; 32] = key.try_into().unwrap();
+
+        Ok(PrivateKey { key })
+    }
+
+    pub fn public_key(&self) -> PublicKey {
+        scalarmult_base(&self.key)
+    }
+
+    pub fn exchange(&self, public: PublicKey) -> [u8; 32] {
+        scalarmult(&self.key, &public)
+    }
 }

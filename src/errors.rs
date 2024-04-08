@@ -8,13 +8,19 @@ impl Eq for InvalidMac {}
 
 impl fmt::Display for InvalidMac {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Invalid MAC detected. This message may be tampered with.")
+        write!(
+            f,
+            "Invalid MAC detected. This message may be tampered with."
+        )
     }
 }
 
 impl fmt::Debug for InvalidMac {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Invalid MAC detected. This message may be tampered with.")
+        write!(
+            f,
+            "Invalid MAC detected. This message may be tampered with."
+        )
     }
 }
 

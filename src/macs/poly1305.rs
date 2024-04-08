@@ -1,11 +1,13 @@
 use crate::utils::*;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
+#[derive(Zeroize, ZeroizeOnDrop)]
 pub struct Poly1305 {
     r: [u32; 5],
     h: [u32; 5],
     pad: [u32; 4],
-    finished: bool,
-    output: [u8; 16],
+    buf: [u8; 16],
+    leftover: usize,
 }
 
 impl Poly1305 {
@@ -45,7 +47,15 @@ impl Poly1305 {
         self.h[1] += c;
     }
 
-    fn finish(&mut self) {
+    fn finish(&mut self) -> [u8; 16] {
+        if self.leftover == 16 {
+            self.block(&self.buf.clone(), false);
+        }
+        else if self.leftover != 0 {
+            self.buf[self.leftover] = 1;
+            self.block(&self.buf.clone(), true);
+        }
+
         let mut h = self.h.clone();
 
         let mut c: u32 = 0;
@@ -100,20 +110,18 @@ impl Poly1305 {
         f = h[3] as u64 + self.pad[3] as u64 + (f >> 32);
         h[3] = f as u32;
 
-        self.finished = true;
-
         let mut output = [0u8; 16];
 
         for i in 0..4 {
             output[i * 4..(i + 1) * 4].clone_from_slice(&h[i].to_le_bytes());
         }
 
-        self.output = output;
+        output
     }
 }
 
 impl Poly1305 {
-    pub fn new(key: &[u8]) -> Poly1305 {
+    pub fn new(key: [u8; 32]) -> Poly1305 {
         let mut r = [0u32; 5];
         r[0] = (from_le_bytes(&key[0..4])) & 0x3ffffff;
         r[1] = (from_le_bytes(&key[3..7]) >> 2) & 0x3ffff03;
@@ -128,16 +136,15 @@ impl Poly1305 {
         pad[3] = from_le_bytes(&key[28..32]);
 
         let h = [0u32; 5];
-
-        let finished = false;
-        let output = [0u8; 16];
+        let buf = [0u8; 16];
+        let leftover = 0usize;
 
         Poly1305 {
             r,
             h,
             pad,
-            finished,
-            output,
+            buf,
+            leftover,
         }
     }
 
@@ -154,20 +161,24 @@ impl Poly1305 {
             if chunk.len() == 16 {
                 self.block(chunk, false);
             } else {
-                let mut m = [0u8; 16];
-                m[..chunk.len()].copy_from_slice(chunk);
-                m[chunk.len()] = 1;
-                self.block(&m, true);
+                while (16 - self.leftover) < chunk.len() {
+                    let x = [&self.buf[self.leftover..], &chunk[..(16 - self.leftover)]].concat();
+                    self.block(&x, false);
+                    self.leftover = 0;
+                    self.buf.zeroize();
+                }
+
+                self.buf[self.leftover..self.leftover + (chunk.len() % 16)].copy_from_slice(&chunk[..(chunk.len() % 16)]);
+                self.leftover += chunk.len();
             }
         }
     }
 
-    pub fn tag(&mut self) -> Vec<u8> {
-        if !self.finished {
-            self.finish();
-        }
+    pub fn tag(&mut self) -> [u8; 16] {
+        let output = self.finish();
+        self.zeroize();
 
-        self.output.to_vec()
+        output
     }
 
     pub fn verify(&mut self, other: &[u8]) -> bool {

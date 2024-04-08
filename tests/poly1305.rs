@@ -13,7 +13,7 @@ fn test_poly1305_1() {
         0xa9,
     ];
 
-    let mut p = Poly1305::new(&key.to_vec());
+    let mut p = Poly1305::new(key);
     p.update_unpadded(msg);
     assert_eq!(p.verify(&tag), true);
 }
@@ -43,13 +43,13 @@ fn test_poly1305_2() {
         0xd9,
     ];
 
-    let mut p = Poly1305::new(&key.to_vec());
+    let mut p = Poly1305::new(key);
     p.update_unpadded(&msg);
     assert_eq!(p.verify(&tag), true);
 }
 
 #[test]
-fn donna_test_1() {
+fn poly1305_test_3() {
     let nacl_key = [
         0xee, 0xa6, 0xa7, 0x25, 0x1c, 0x1e, 0x72, 0x91, 0x6d, 0x11, 0xc2, 0xcb, 0x21, 0x4d, 0x3c,
         0x25, 0x25, 0x39, 0x12, 0x1d, 0x8e, 0x23, 0x4e, 0x65, 0x2d, 0x65, 0x1f, 0xa4, 0xc8, 0xcf,
@@ -73,14 +73,14 @@ fn donna_test_1() {
         0xd9,
     ];
 
-    let mut p = Poly1305::new(&nacl_key.to_vec());
+    let mut p = Poly1305::new(nacl_key);
     p.update_unpadded(&nacl_msg);
 
     assert_eq!(p.verify(&nacl_mac), true);
 }
 
 #[test]
-fn donna_test_2() {
+fn poly1305_test_4() {
     let wrap_key = [
         0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
         0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -97,7 +97,7 @@ fn donna_test_2() {
         0x00,
     ];
 
-    let mut p2 = Poly1305::new(&wrap_key.to_vec());
+    let mut p2 = Poly1305::new(wrap_key);
     p2.update_unpadded(&wrap_msg);
 
     assert_eq!(p2.verify(&wrap_mac), true);

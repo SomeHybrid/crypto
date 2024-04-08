@@ -1,4 +1,5 @@
 use core::arch::x86_64::*;
+use core::ops::{BitAnd, BitXor};
 
 #[derive(Clone, Copy)]
 pub struct Block(__m128i);
@@ -17,17 +18,52 @@ impl Block {
     }
 
     #[inline(always)]
-    pub fn xor(&self, other: Block) -> Block {
-        Block(unsafe { _mm_xor_si128(self.0, other.0) })
-    }
-
-    #[inline(always)]
     pub fn enc(&self, other: Block) -> Block {
         Block(unsafe { _mm_aesenc_si128(self.0, other.0) })
     }
+}
+
+impl BitAnd for Block {
+    type Output = Block;
 
     #[inline(always)]
-    pub fn and(&self, other: Block) -> Block {
+    fn bitand(self, other: Self) -> Self::Output {
         Block(unsafe { _mm_and_si128(self.0, other.0) })
+    }
+}
+
+impl BitXor for Block {
+    type Output = Block;
+
+    #[inline(always)]
+    fn bitxor(self, other: Self) -> Self::Output {
+        Block(unsafe { _mm_xor_si128(self.0, other.0) })
+    }
+}
+
+impl BitAnd for &Block {
+    type Output = Block;
+
+    #[inline(always)]
+    fn bitand(self, other: Self) -> Self::Output {
+        *self & *other
+    }
+}
+
+impl BitXor for &Block {
+    type Output = Block;
+
+    #[inline(always)]
+    fn bitxor(self, other: Self) -> Self::Output {
+        *self ^ *other
+    }
+}
+
+impl BitXor<&Block> for Block {
+    type Output = Block;
+
+    #[inline(always)]
+    fn bitxor(self, other: &Block) -> Self::Output {
+        &self ^ other
     }
 }
