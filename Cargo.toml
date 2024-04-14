@@ -2,6 +2,11 @@
 name = "raycrypt"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Encrypt at the speed of light"
+homepage = "https://github.com/somehybrid/raycrypt"
+repository = "https://github.com/somehybrid/raycrypt"
+readme = "README.md"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
