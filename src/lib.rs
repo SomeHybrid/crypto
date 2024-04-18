@@ -1,5 +1,3 @@
-use getrandom::getrandom;
-
 pub mod aeads;
 pub mod ciphers;
 pub mod ecc;
@@ -7,12 +5,15 @@ pub mod errors;
 pub mod macs;
 pub(crate) mod utils;
 
+pub use ecc::x25519::{PrivateKey, PublicKey};
+pub use getrandom::getrandom;
+
 pub fn encrypt(key: Vec<u8>, msg: &[u8]) -> Vec<u8> {
     let mut nonce = [0u8; 32];
     let mut ad = [0u8; 32];
 
-    let _ = getrandom::getrandom(&mut nonce);
-    let _ = getrandom::getrandom(&mut ad);
+    let _ = getrandom(&mut nonce);
+    let _ = getrandom(&mut ad);
 
     let mut output = aeads::aegis256::encrypt::<16>(&key, msg, &nonce, &ad);
     output.append(&mut nonce.to_vec());
