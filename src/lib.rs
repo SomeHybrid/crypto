@@ -25,7 +25,7 @@ pub fn encrypt(key: Vec<u8>, msg: &[u8]) -> Vec<u8> {
 pub fn decrypt(key: Vec<u8>, msg: &[u8]) -> Result<Vec<u8>, errors::InvalidMac> {
     let nonce = &msg[msg.len() - 64..msg.len() - 32];
     let ad = &msg[msg.len() - 32..];
-    let msg = &msg[..msg.len() - 64];
+    let m = &msg[..msg.len() - 64];
 
-    aeads::aegis256::decrypt::<16>(&key, msg, nonce, ad)
+    aeads::aegis256::decrypt::<16>(&key, m, nonce, ad)
 }
