@@ -15,7 +15,6 @@ name = "raycrypt"
 [dependencies]
 zeroize = { version = "1.7", features = [ "zeroize_derive" ] }
 cfg-if = "1.0"
-sha2 = "0.10"
 getrandom = "0.2"
 
 [dev-dependencies]
